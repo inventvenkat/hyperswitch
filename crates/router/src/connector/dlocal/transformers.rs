@@ -72,7 +72,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest  {
                             None => "dummyEmail@gmail.com".to_string()
                         },
                         //todo: this needs to be customerid received in request
-                        document: "72464143391".to_string()
+                        document: "36691251830".to_string()
                     },
                     card : Some(Card {
                         holder_name: ccard.card_holder_name.peek().clone(),
@@ -95,10 +95,11 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest  {
                         Some (val) => val.to_string(),
                         None => "http://wwww.sandbox.juspay.in/hackathon/H1005".to_string()
                     },
-                    three_dsecure : match item.auth_type {
-                        ThreeDs => Some(ThreeDSecureReqData { force: (true) }),
-                        NoThreeDs => None,
-                    },
+                    three_dsecure : None, // Ideally item.auth_type should have nonThreeDS which is not happening
+                    // three_dsecure : match item.auth_type {
+                    //     ThreeDs => Some(ThreeDSecureReqData { force: (true) }),
+                    //     NoThreeDs => None,
+                    // },
                     // wallet: None,
                     callback_url : item.return_url.clone(),
                     };
@@ -126,7 +127,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest  {
                             Some (c) => c.peek().clone().to_string(),
                             None => "dummyEmail@gmail.com".to_string()
                         },
-                        document: "72464143391".to_string()
+                        document: "36691251830".to_string()
                     },
                     card : None,
                     order_id : item.payment_id.clone(),
@@ -279,7 +280,7 @@ impl From<DlocalPaymentStatus> for enums::AttemptStatus {
 
 #[derive(Default, Eq, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ThreeDSecureResData {
-    pub redirect_url: String,
+    pub redirect_url: Option<String>,
 }
 
 #[derive(Debug, Default, Eq, Clone, PartialEq, Serialize, Deserialize)]
@@ -296,20 +297,23 @@ impl<F,T> TryFrom<types::ResponseRouterData<F, DlocalPaymentsResponse, T, types:
 
         let threeDSData = match item.response.three_dsecure {
             Some(val) => {
-                let redirection_url_response = Url::parse(&val.redirect_url)
-                                                .into_report()
-                                                .change_context(errors::ConnectorError::ResponseHandlingFailed)
-                                                .attach_printable("Failed to parse redirection url").unwrap();
-                let form_field_for_redirection =std::collections::HashMap::from_iter(
-                        redirection_url_response
-                        .query_pairs()
-                        .map(|(k, v)| (k.to_string(), v.to_string())),
-                );
-                Some(services::RedirectForm {
-                    url: val.redirect_url,
-                    method: services::Method::Get,
-                    form_fields: form_field_for_redirection,
-                })
+                match val.redirect_url {
+                    Some(redirect_url) =>{
+                        let redirection_url_response = Url::parse(&redirect_url)
+                                                        .into_report()
+                                                        .change_context(errors::ConnectorError::ResponseHandlingFailed)
+                                                        .attach_printable("Failed to parse redirection url").unwrap();
+                        let form_field_for_redirection =std::collections::HashMap::from_iter(
+                                redirection_url_response
+                                .query_pairs()
+                                .map(|(k, v)| (k.to_string(), v.to_string())),
+                        );
+                        Some(services::RedirectForm {
+                            url: redirect_url,
+                            method: services::Method::Get,
+                            form_fields: form_field_for_redirection,
+                        })},
+                    None => None}
             },
             None => None
         };
