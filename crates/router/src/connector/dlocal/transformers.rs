@@ -72,7 +72,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest  {
                             None => "dummyEmail@gmail.com".to_string()
                         },
                         //todo: this needs to be customerid received in request
-                        document: "04085111175".to_string()
+                        document: "36989624620".to_string()
                     },
                     card : Some(Card {
                         holder_name: ccard.card_holder_name.peek().clone(),
@@ -123,7 +123,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest  {
                             Some (c) => c.peek().clone().to_string(),
                             None => "dummyEmail@gmail.com".to_string()
                         },
-                        document: "43463226979".to_string()
+                        document: "36989624620".to_string()
                     },
                     card : None,
                     order_id : item.payment_id.clone(),
@@ -284,7 +284,7 @@ pub struct DlocalPaymentsResponse {
     status: DlocalPaymentStatus,
     id: String,
     three_dsecure: Option<ThreeDSecureResData>,
-    card: Option<Card>,
+    // card: Option<Card>,
 }
 
 impl<F,T> TryFrom<types::ResponseRouterData<F, DlocalPaymentsResponse, T, types::PaymentsResponseData>> for types::RouterData<F, T, types::PaymentsResponseData> {
