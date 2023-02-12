@@ -20,8 +20,7 @@ pub mod dlocal;
 
 pub use self::{
     aci::Aci, adyen::Adyen, applepay::Applepay, authorizedotnet::Authorizedotnet,
-    braintree::Braintree, checkout::Checkout, cybersource::Cybersource, fiserv::Fiserv,
-    globalpay::Globalpay, klarna::Klarna, payu::Payu, rapyd::Rapyd, shift4::Shift4, stripe::Stripe,
-    worldline::Worldline, worldpay::Worldpay,
-dlocal::Dlocal,
+    braintree::Braintree, checkout::Checkout, cybersource::Cybersource, dlocal::Dlocal,
+    fiserv::Fiserv, globalpay::Globalpay, klarna::Klarna, payu::Payu, rapyd::Rapyd, shift4::Shift4,
+    stripe::Stripe, worldline::Worldline, worldpay::Worldpay,
 };

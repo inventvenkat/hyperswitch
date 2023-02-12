@@ -153,7 +153,7 @@ pub struct Connectors {
 
     // Keep this field separate from the remaining fields
     pub supported: SupportedConnectors,
-	pub dlocal: ConnectorParams,
+    pub dlocal: ConnectorParams,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]

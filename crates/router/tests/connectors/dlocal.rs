@@ -95,7 +95,7 @@ async fn should_sync_authorized_payment() {
         .await
         .expect("PSync response");
     println!("response from authorized payment");
-    println!("{}",response.status);
+    println!("{}", response.status);
     assert_eq!(response.status, enums::AttemptStatus::Authorized,);
 }
 
@@ -291,14 +291,8 @@ async fn should_fail_payment_for_incorrect_card_number() {
         .await
         .unwrap();
     let x = response.response.unwrap_err();
-    assert_eq!(
-        x.message,
-        "Invalid parameter",
-    );
-    assert_eq!(
-        x.reason,
-        Some("card.number".to_string())
-    );
+    assert_eq!(x.message, "Invalid parameter",);
+    assert_eq!(x.reason, Some("card.number".to_string()));
 }
 
 // Creates a payment with empty card number.
@@ -318,14 +312,8 @@ async fn should_fail_payment_for_empty_card_number() {
         .await
         .unwrap();
     let x = response.response.unwrap_err();
-    assert_eq!(
-        x.message,
-        "Invalid parameter",
-    );
-    assert_eq!(
-        x.reason,
-        Some("card.number".to_string())
-    );
+    assert_eq!(x.message, "Invalid parameter",);
+    assert_eq!(x.reason, Some("card.number".to_string()));
 }
 
 // Creates a payment with incorrect CVC.
@@ -345,14 +333,8 @@ async fn should_fail_payment_for_incorrect_cvc() {
         .await
         .unwrap();
     let x = response.response.unwrap_err();
-    assert_eq!(
-        x.message,
-        "Invalid parameter",
-    );
-    assert_eq!(
-        x.reason,
-        Some("card.cvv".to_string())
-    );
+    assert_eq!(x.message, "Invalid parameter",);
+    assert_eq!(x.reason, Some("card.cvv".to_string()));
 }
 
 // Creates a payment with incorrect expiry month.
@@ -372,14 +354,8 @@ async fn should_fail_payment_for_invalid_exp_month() {
         .await
         .unwrap();
     let x = response.response.unwrap_err();
-    assert_eq!(
-        x.message,
-        "Invalid parameter",
-    );
-    assert_eq!(
-        x.reason,
-        Some("card.expiration_month".to_string())
-    );
+    assert_eq!(x.message, "Invalid parameter",);
+    assert_eq!(x.reason, Some("card.expiration_month".to_string()));
 }
 
 // Creates a payment with incorrect expiry year.
@@ -399,14 +375,8 @@ async fn should_fail_payment_for_incorrect_expiry_year() {
         .await
         .unwrap();
     let x = response.response.unwrap_err();
-    assert_eq!(
-        x.message,
-        "Invalid parameter",
-    );
-    assert_eq!(
-        x.reason,
-        Some("card.expiration_year".to_string())
-    );
+    assert_eq!(x.message, "Invalid parameter",);
+    assert_eq!(x.reason, Some("card.expiration_year".to_string()));
 }
 
 // Voids a payment using automatic capture flow (Non 3DS).
@@ -421,10 +391,7 @@ async fn should_fail_void_payment_for_auto_capture() {
         .await
         .unwrap();
     let x = void_response.response.unwrap_err();
-    assert_eq!(
-        x.code,
-        "5021",
-    );
+    assert_eq!(x.code, "5021",);
 }
 
 // Captures a payment using invalid connector payment id.
@@ -435,10 +402,7 @@ async fn should_fail_capture_for_invalid_payment() {
         .await
         .unwrap();
     let x = capture_response.response.unwrap_err();
-    assert_eq!(
-        x.code,
-        "3003",
-    );
+    assert_eq!(x.code, "3003",);
 }
 
 // Refunds a payment with refund amount higher than payment amount.
@@ -455,17 +419,11 @@ async fn should_fail_for_refund_amount_higher_than_payment_amount() {
         )
         .await
         .unwrap();
-        let x = response.response.unwrap_err();
-        println!("response from refund amount higher payment");
-        println!("{}",x.code);
-        assert_eq!(
-            x.code,
-            "5007",
-        );
-        assert_eq!(
-            x.message,
-            "Amount exceeded",
-        );
+    let x = response.response.unwrap_err();
+    println!("response from refund amount higher payment");
+    println!("{}", x.code);
+    assert_eq!(x.code, "5007",);
+    assert_eq!(x.message, "Amount exceeded",);
 }
 
 // Connector dependent test cases goes here

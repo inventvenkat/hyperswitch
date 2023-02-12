@@ -520,7 +520,7 @@ pub enum Connector {
     Cybersource,
     #[default]
     Dummy,
-	Dlocal,
+    Dlocal,
     Fiserv,
     Globalpay,
     Klarna,
