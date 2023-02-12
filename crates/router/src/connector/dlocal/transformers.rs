@@ -72,7 +72,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest  {
                             None => "dummyEmail@gmail.com".to_string()
                         },
                         //todo: this needs to be customerid received in request
-                        document: "36989624620".to_string()
+                        document: "72464143391".to_string()
                     },
                     card : Some(Card {
                         holder_name: ccard.card_holder_name.peek().clone(),
@@ -85,7 +85,10 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest  {
                             Some(val) => Some(val.mandate_id),
                             None => None
                         },
-                        installments: Some("1".to_string())
+                        installments: match item.request.mandate_id.clone() {
+                            Some(_) => Some("1".to_string()),
+                            None => None
+                        },
                     }),
                     order_id : item.payment_id.clone(),
                     notification_url : match &item.return_url {
@@ -123,7 +126,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest  {
                             Some (c) => c.peek().clone().to_string(),
                             None => "dummyEmail@gmail.com".to_string()
                         },
-                        document: "36989624620".to_string()
+                        document: "72464143391".to_string()
                     },
                     card : None,
                     order_id : item.payment_id.clone(),
