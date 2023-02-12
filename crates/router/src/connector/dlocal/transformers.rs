@@ -59,7 +59,8 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest  {
                             Some (c) => c.peek().clone().to_string(),
                             None => "dummyEmail@gmail.com".to_string()
                         },
-                        document: "39915685009".to_string()
+                        //todo: this needs to be customerid received in request
+                        document: "04085111175".to_string()
                     },
                     card : Card {
                         holder_name: ccard.card_holder_name.peek().clone(),
