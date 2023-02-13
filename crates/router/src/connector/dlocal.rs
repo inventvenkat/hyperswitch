@@ -5,14 +5,10 @@ use std::fmt::Debug;
 use common_utils::{
     crypto::{self, SignMessage},
     date_time,
-    ext_traits::Encode,
 };
 use error_stack::{IntoReport, ResultExt};
 use hex::encode;
-use time::{
-    format_description::{self, well_known},
-    serde, OffsetDateTime, PrimitiveDateTime,
-};
+use time::format_description::{self};
 use transformers as dlocal;
 
 use crate::{
@@ -41,7 +37,7 @@ where
     fn build_headers(
         &self,
         req: &types::RouterData<Flow, Request, Response>,
-        connectors: &settings::Connectors,
+        _connectors: &settings::Connectors,
     ) -> CustomResult<Vec<(String, String)>, errors::ConnectorError> {
         let dlocal_req = match self.get_request_body(req)? {
             Some(val) => val,
@@ -57,30 +53,25 @@ where
             .change_context(errors::ConnectorError::RequestEncodingFailed)?;
 
         let auth = dlocal::DlocalAuthType::try_from(&req.connector_auth_type)?;
-        let reqForSign: String = format!(
-            "{}{}{}",
-            auth.xLogin.to_string(),
-            date.to_string(),
-            dlocal_req
-        );
+        let sign_req: String = format!("{}{}{}", auth.x_login, date, dlocal_req);
         let authz = crypto::HmacSha256::sign_message(
             &crypto::HmacSha256,
             auth.secret.as_bytes(),
-            reqForSign.as_bytes(),
+            sign_req.as_bytes(),
         )
         .change_context(errors::ConnectorError::RequestEncodingFailed)
         .attach_printable("Failed to sign the message")?;
         let auth_string: String = format!(
             "{}{}",
-            "V2-HMAC-SHA256, Signature: ".to_string(),
-            hex::encode(authz)
+            format_args!("V2-HMAC-SHA256, Signature: "),
+            encode(authz)
         );
         let headers = vec![
             (headers::AUTHORIZATION.to_string(), auth_string),
-            (headers::X_LOGIN.to_string(), auth.xLogin.to_string()),
-            (headers::X_TRANS_KEY.to_string(), auth.xTransKey.to_string()),
+            (headers::X_LOGIN.to_string(), auth.x_login),
+            (headers::X_TRANS_KEY.to_string(), auth.x_trans_key),
             (headers::X_VERSION.to_string(), "2.1".to_string()),
-            (headers::X_DATE.to_string(), date.to_string()),
+            (headers::X_DATE.to_string(), date),
             (
                 headers::CONTENT_TYPE.to_string(),
                 Self.get_content_type().to_string(),
@@ -105,7 +96,7 @@ impl ConnectorCommon for Dlocal {
 
     fn build_error_response(
         &self,
-        res: types::Response,
+        res: Response,
     ) -> CustomResult<ErrorResponse, errors::ConnectorError> {
         let response: dlocal::DlocalErrorResponse = res
             .response
@@ -151,12 +142,12 @@ impl ConnectorIntegration<api::Void, types::PaymentsCancelData, types::PaymentsR
         req: &types::PaymentsCancelRouterData,
         connectors: &settings::Connectors,
     ) -> CustomResult<String, errors::ConnectorError> {
-        let cancelData = dlocal::DlocalPaymentsCancelRequest::try_from(req)?;
+        let cancel_data = dlocal::DlocalPaymentsCancelRequest::try_from(req)?;
         Ok(format!(
             "{}{}{}{}",
             self.base_url(connectors),
             "payments/",
-            cancelData.cancel_id,
+            cancel_data.cancel_id,
             "/cancel"
         ))
     }
@@ -237,12 +228,12 @@ impl ConnectorIntegration<api::PSync, types::PaymentsSyncData, types::PaymentsRe
         req: &types::PaymentsSyncRouterData,
         connectors: &settings::Connectors,
     ) -> CustomResult<String, errors::ConnectorError> {
-        let syncData = dlocal::DlocalPaymentsSyncRequest::try_from(req)?;
+        let sync_data = dlocal::DlocalPaymentsSyncRequest::try_from(req)?;
         Ok(format!(
             "{}{}{}{}",
             self.base_url(connectors),
             "payments/",
-            syncData.authz_id,
+            sync_data.authz_id,
             "/status"
         ))
     }
@@ -315,10 +306,10 @@ impl ConnectorIntegration<api::Capture, types::PaymentsCaptureData, types::Payme
         &self,
         req: &types::PaymentsCaptureRouterData,
     ) -> CustomResult<Option<String>, errors::ConnectorError> {
-        let dlocalReq =
+        let dlocal_req =
             utils::Encode::<dlocal::DlocalPaymentsCaptureRequest>::convert_and_encode(req)
                 .change_context(errors::ConnectorError::RequestEncodingFailed)?;
-        Ok(Some(dlocalReq))
+        Ok(Some(dlocal_req))
     }
 
     fn build_request(
@@ -552,12 +543,12 @@ impl ConnectorIntegration<api::RSync, types::RefundsData, types::RefundsResponse
         req: &types::RefundSyncRouterData,
         connectors: &settings::Connectors,
     ) -> CustomResult<String, errors::ConnectorError> {
-        let syncData = dlocal::DlocalRefundsSyncRequest::try_from(req)?;
+        let sync_data = dlocal::DlocalRefundsSyncRequest::try_from(req)?;
         Ok(format!(
             "{}{}{}{}",
             self.base_url(connectors),
             "refunds/",
-            syncData.refund_id,
+            sync_data.refund_id,
             "/status"
         ))
     }
