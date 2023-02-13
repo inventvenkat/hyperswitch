@@ -106,7 +106,7 @@ base_url = "https://try.access.worldpay.com/"
 base_url = "https://apis.sandbox.globalpay.com/ucp/"
 
 [connectors.dlocal]
-base_url = 
+base_url = "https://sandbox.dlocal.com/"
 
 [connectors.supported]
 wallets = ["klarna", "braintree", "applepay"]

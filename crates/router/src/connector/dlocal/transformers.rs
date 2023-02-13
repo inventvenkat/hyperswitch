@@ -58,10 +58,10 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
     fn try_from(item: &types::PaymentsAuthorizeRouterData) -> Result<Self, Self::Error> {
         match item.request.payment_method_data {
             api::PaymentMethod::Card(ref ccard) => {
-                let should_capture = matches!(
-                    item.request.capture_method,
-                    Some(enums::CaptureMethod::Automatic) | None
-                );
+                let should_capture = match item.request.capture_method {
+                    Some(enums::CaptureMethod::Automatic) => true,
+                    _ => false,
+                };
                 let payment_request = Self {
                     amount: item.request.amount,
                     country: Some(get_currency(item.request.currency)),
@@ -74,7 +74,9 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                             Some(c) => c.peek().clone().to_string(),
                             None => "dummyEmail@gmail.com".to_string(),
                         },
-                        //todo: this needs to be customerid received in request
+                        //todo: this needs to be customer unique identifier like PAN, CPF, etc
+                        // we need to mandatorily receive this from merchant and pass
+                        // so, we need to get this data from payment_core and pass
                         document: "36691251830".to_string(),
                     },
                     card: Some(Card {
@@ -89,10 +91,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                             .unwrap(),
                         expiration_year: ccard.card_exp_year.peek().clone().parse::<i32>().unwrap(),
                         capture: should_capture.to_string(),
-                        installments_id: match item.request.mandate_id.clone() {
-                            Some(val) => Some(val.mandate_id),
-                            None => None,
-                        },
+                        installments_id: item.request.mandate_id.as_ref().map(|ids|ids.mandate_id.clone()),
                         installments: match item.request.mandate_id.clone() {
                             Some(_) => Some("1".to_string()),
                             None => None,
@@ -111,8 +110,6 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     // wallet: None,
                     callback_url: item.return_url.clone(),
                 };
-                println!("hellloo please log the request");
-                println!("{:#?}", payment_request);
                 Ok(payment_request)
             }
             api::PaymentMethod::Wallet(ref wallet) => {
@@ -147,8 +144,6 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     three_dsecure: None,
                     callback_url: item.return_url.clone(),
                 };
-                println!("hellloo please log the request");
-                println!("{:#?}", payment_request);
                 Ok(payment_request)
             }
             _ => Err(
@@ -342,7 +337,6 @@ impl<F, T>
             None => None,
         };
 
-        println!("hellloo please log the response");
         let response = types::PaymentsResponseData::TransactionResponse {
             resource_id: types::ResponseId::ConnectorTransactionId(item.response.id),
             redirection_data: threeDSData.clone(),
@@ -350,7 +344,6 @@ impl<F, T>
             mandate_reference: None,
             connector_metadata: None,
         };
-        println!("{:#?}", response);
         Ok(Self {
             status: enums::AttemptStatus::from(item.response.status),
             response: Ok(response),

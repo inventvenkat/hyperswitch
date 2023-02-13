@@ -78,7 +78,7 @@ pub trait ConnectorIntegration<T, Req, Resp>: ConnectorIntegrationAny<T, Req, Re
 
     fn get_request_body(
         &self,
-        req: &types::RouterData<T, Req, Resp>,
+        _req: &types::RouterData<T, Req, Resp>,
     ) -> CustomResult<Option<String>, errors::ConnectorError> {
         Ok(None)
     }
