@@ -47,16 +47,14 @@ where
             Some(val) => val,
             None => "".to_string(),
         };
-        // #[serde(with = "common_utils::custom_serde::iso8601")]
-        // let date:PrimitiveDateTime = date_time::now();
         let format =
             format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second].000Z")
                 .into_report()
-                .change_context(errors::ConnectorError::InvalidDateFormat)?;
+                .change_context(errors::ConnectorError::RequestEncodingFailed)?;
         let date = date_time::now()
             .format(&format)
             .into_report()
-            .change_context(errors::ConnectorError::InvalidDateFormat)?;
+            .change_context(errors::ConnectorError::RequestEncodingFailed)?;
 
         let auth = dlocal::DlocalAuthType::try_from(&req.connector_auth_type)?;
         let reqForSign: String = format!(
@@ -85,7 +83,7 @@ where
             (headers::X_DATE.to_string(), date.to_string()),
             (
                 headers::CONTENT_TYPE.to_string(),
-                "application/json".to_string(),
+                Self.get_content_type().to_string(),
             ),
         ];
         Ok(headers)
@@ -207,8 +205,6 @@ impl ConnectorIntegration<api::Void, types::PaymentsCancelData, types::PaymentsR
         &self,
         res: Response,
     ) -> CustomResult<ErrorResponse, errors::ConnectorError> {
-        println!("logging response void");
-        println!("{:#?}", res.response);
         self.build_error_response(res)
     }
 }
@@ -277,8 +273,6 @@ impl ConnectorIntegration<api::PSync, types::PaymentsSyncData, types::PaymentsRe
         data: &types::PaymentsSyncRouterData,
         res: Response,
     ) -> CustomResult<types::PaymentsSyncRouterData, errors::ConnectorError> {
-        println!("logging response");
-        println!("{:#?}", res.response);
         logger::debug!(payment_sync_response=?res);
         let response: dlocal::DlocalPaymentsResponse = res
             .response
@@ -367,8 +361,6 @@ impl ConnectorIntegration<api::Capture, types::PaymentsCaptureData, types::Payme
         &self,
         res: Response,
     ) -> CustomResult<ErrorResponse, errors::ConnectorError> {
-        println!("logging response capture");
-        println!("{:#?}", res.response);
         self.build_error_response(res)
     }
 }
@@ -443,8 +435,6 @@ impl ConnectorIntegration<api::Authorize, types::PaymentsAuthorizeData, types::P
         data: &types::PaymentsAuthorizeRouterData,
         res: Response,
     ) -> CustomResult<types::PaymentsAuthorizeRouterData, errors::ConnectorError> {
-        println!("logging response");
-        println!("{:#?}", res.response);
         let response: dlocal::DlocalPaymentsResponse = res
             .response
             .parse_struct("DlocalPaymentsResponse")
@@ -463,8 +453,6 @@ impl ConnectorIntegration<api::Authorize, types::PaymentsAuthorizeData, types::P
         &self,
         res: Response,
     ) -> CustomResult<ErrorResponse, errors::ConnectorError> {
-        println!("logging response");
-        println!("{:#?}", res.response);
         self.build_error_response(res)
     }
 }

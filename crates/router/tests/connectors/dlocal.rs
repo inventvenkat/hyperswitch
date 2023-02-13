@@ -94,7 +94,6 @@ async fn should_sync_authorized_payment() {
         )
         .await
         .expect("PSync response");
-    println!("response from authorized payment");
     println!("{}", response.status);
     assert_eq!(response.status, enums::AttemptStatus::Authorized,);
 }

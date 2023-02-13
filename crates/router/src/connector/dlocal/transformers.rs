@@ -1,7 +1,8 @@
 use std::{collections::HashMap, ptr::eq};
 
+use common_utils::pii::{self, Email};
 use error_stack::{IntoReport, ResultExt};
-use masking::PeekInterface;
+use masking::{PeekInterface, Secret};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use storage_models::schema::payment_attempt::payment_method_id;
@@ -14,18 +15,18 @@ use crate::{
 
 #[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Payer {
-    pub name: String,
-    pub email: String,
+    pub name: Secret<String>,
+    pub email: Secret<String, Email>,
     pub document: String,
 }
 
 #[derive(Debug, Default, Eq, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Card {
-    pub holder_name: String,
-    pub number: String,
-    pub cvv: String,
-    pub expiration_month: i32,
-    pub expiration_year: i32,
+    pub holder_name: Secret<String>,
+    pub number: Secret<String, pii::CardNumber>,
+    pub cvv: Secret<String>,
+    pub expiration_month: Secret<String>,
+    pub expiration_year: Secret<String>,
     pub capture: String,
     pub installments_id: Option<String>,
     pub installments: Option<String>,
@@ -36,7 +37,6 @@ pub struct ThreeDSecureReqData {
     pub force: bool,
 }
 
-//TODO: Fill the struct with respective fields
 #[derive(Default, Debug, Serialize, Eq, PartialEq)]
 pub struct DlocalPaymentsRequest {
     pub amount: i64, //amount in cents, hence passed as integer
@@ -50,12 +50,16 @@ pub struct DlocalPaymentsRequest {
     pub notification_url: String,
     pub three_dsecure: Option<ThreeDSecureReqData>,
     pub callback_url: Option<String>,
-    // pub wallet: Option<String>,
 }
 
 impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
     type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(item: &types::PaymentsAuthorizeRouterData) -> Result<Self, Self::Error> {
+        let email = item.request.email.as_ref().ok_or(
+            errors::ConnectorError::MissingRequiredField {
+                field_name: "email_id",
+            }
+        )?.clone();
         match item.request.payment_method_data {
             api::PaymentMethod::Card(ref ccard) => {
                 let should_capture = match item.request.capture_method {
@@ -69,27 +73,20 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     payment_method_id: "CARD".to_string(),
                     payment_method_flow: "DIRECT".to_string(),
                     payer: Payer {
-                        name: ccard.card_holder_name.peek().clone(),
-                        email: match &item.request.email {
-                            Some(c) => c.peek().clone().to_string(),
-                            None => "dummyEmail@gmail.com".to_string(),
-                        },
+                        name: ccard.card_holder_name.clone(),
+                        email,
                         //todo: this needs to be customer unique identifier like PAN, CPF, etc
                         // we need to mandatorily receive this from merchant and pass
                         // so, we need to get this data from payment_core and pass
                         document: "36691251830".to_string(),
                     },
                     card: Some(Card {
-                        holder_name: ccard.card_holder_name.peek().clone(),
-                        number: ccard.card_number.peek().clone(),
-                        cvv: ccard.card_cvc.peek().clone(),
-                        expiration_month: ccard
-                            .card_exp_month
-                            .peek()
-                            .clone()
-                            .parse::<i32>()
-                            .unwrap(),
-                        expiration_year: ccard.card_exp_year.peek().clone().parse::<i32>().unwrap(),
+                        // address.and_then(|address| address.first_name.clone())
+                        holder_name: ccard.card_holder_name.clone(),
+                        number: ccard.card_number.clone(),
+                        cvv: ccard.card_cvc.clone(),
+                        expiration_month: ccard.card_exp_month.clone(),
+                        expiration_year: ccard.card_exp_year.clone(),
                         capture: should_capture.to_string(),
                         installments_id: item.request.mandate_id.as_ref().map(|ids|ids.mandate_id.clone()),
                         installments: match item.request.mandate_id.clone() {
@@ -124,14 +121,8 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     payment_method_id: "MP".to_string(),
                     payment_method_flow: "REDIRECT".to_string(),
                     payer: Payer {
-                        name: match &item.request.email {
-                            Some(c) => c.peek().clone().to_string(),
-                            None => "dummyEmail@gmail.com".to_string(),
-                        },
-                        email: match &item.request.email {
-                            Some(c) => c.peek().clone().to_string(),
-                            None => "dummyEmail@gmail.com".to_string(),
-                        },
+                        name: "dummyEmail@gmail.com".to_string().into(),
+                        email,
                         document: "36691251830".to_string(),
                     },
                     card: None,
@@ -206,14 +197,13 @@ impl TryFrom<&types::PaymentsCaptureRouterData> for DlocalPaymentsCaptureRequest
             None => item.request.amount,
         };
         Ok(Self {
-            authorization_id: (item.request.connector_transaction_id.clone()),
-            amount: (amount_to_capture),
-            currency: (item.request.currency.to_string()),
-            order_id: (item.payment_id.clone()),
+            authorization_id: item.request.connector_transaction_id.clone(),
+            amount: amount_to_capture,
+            currency: item.request.currency.to_string(),
+            order_id: item.payment_id.clone(),
         })
     }
 }
-//TODO: Fill the struct with respective fields
 // Auth Struct
 pub struct DlocalAuthType {
     pub(super) xLogin: String,
@@ -240,8 +230,6 @@ impl TryFrom<&types::ConnectorAuthType> for DlocalAuthType {
         }
     }
 }
-// PaymentsResponse
-//TODO: Append the remaining status flags
 #[derive(Debug, Clone, Eq, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum DlocalPaymentStatus {
@@ -267,31 +255,6 @@ impl From<DlocalPaymentStatus> for enums::AttemptStatus {
     }
 }
 
-//TODO: Fill the struct with respective fields
-// {
-//     "id": "D-4-e2227981-8ec8-48fd-8e9a-19fedb08d73a",
-//     "amount": 120,
-//     "currency": "USD",
-//     "payment_method_id": "CARD",
-//     "payment_method_type": "CARD",
-//     "payment_method_flow": "DIRECT",
-//     "country": "BR",
-//     "card": {
-//         "holder_name": "Thiago Gabriel",
-//         "expiration_month": 10,
-//         "expiration_year": 2040,
-//         "brand": "VI",
-//         "last4": "1111"
-//     },
-//     "created_date": "2019-02-06T21:04:43.000+0000",
-//     "approved_date": "2019-02-06T21:04:44.000+0000",
-//     "status": "AUTHORIZED",
-//     "status_detail": "The payment was authorized",
-//     "status_code": "600",
-//     "order_id": "657434343",
-//     "notification_url": "http://merchant.com/notifications"
-// }
-
 #[derive(Default, Eq, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ThreeDSecureResData {
     pub redirect_url: Option<String>,
@@ -302,7 +265,6 @@ pub struct DlocalPaymentsResponse {
     status: DlocalPaymentStatus,
     id: String,
     three_dsecure: Option<ThreeDSecureResData>,
-    // card: Option<Card>,
 }
 
 impl<F, T>
@@ -450,7 +412,6 @@ impl<F, T>
     }
 }
 
-//TODO: Fill the struct with respective fields
 // REFUND :
 // Type definition for RefundRequest
 #[derive(Default, Debug, Serialize)]
@@ -499,24 +460,16 @@ impl From<RefundStatus> for enums::RefundStatus {
         match item {
             RefundStatus::SUCCESS => Self::Success,
             RefundStatus::PENDING => Self::Pending,
-            RefundStatus::REJECTED => Self::ManualReview, // Is rejected manual review?
+            RefundStatus::REJECTED => Self::ManualReview,
             RefundStatus::CANCELLED => Self::Failure,
         }
     }
 }
 
-//TODO: Fill the struct with respective fields
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct RefundResponse {
     pub id: String,
-    // pub payment_id: String,
-    // pub notification_url: String,
-    // pub amount: f64,
-    // pub currency: String,
     pub status: RefundStatus,
-    // pub status_code: i32,
-    // pub status_detail: String,
-    // pub created_date: String,
 }
 
 impl TryFrom<types::RefundsResponseRouterData<api::Execute, RefundResponse>>
@@ -572,7 +525,6 @@ impl TryFrom<types::RefundsResponseRouterData<api::RSync, RefundResponse>>
     }
 }
 
-//TODO: Fill the struct with respective fields
 #[derive(Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct DlocalErrorResponse {
     pub code: i32,

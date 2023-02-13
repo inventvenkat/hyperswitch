@@ -468,7 +468,7 @@ impl Default for PaymentAuthorizeType {
             setup_mandate_details: None,
             browser_info: Some(BrowserInfoType::default().0),
             order_details: None,
-            email: None,
+            email: Some(Secret::new("myemail@gmail.com".to_string())),
         };
         Self(data)
     }
