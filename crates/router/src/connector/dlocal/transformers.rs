@@ -12,8 +12,8 @@ use crate::{
 
 #[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Payer {
-    pub name: Secret<String>,
-    pub email: Secret<String, Email>,
+    pub name: Option<Secret<String>>,
+    pub email: Option<Secret<String, Email>>,
     pub document: String,
 }
 
@@ -34,13 +34,29 @@ pub struct ThreeDSecureReqData {
     pub force: bool,
 }
 
+#[derive(Debug, Serialize, Default, Deserialize, Clone, Eq, PartialEq)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum PaymentMethodId {
+    #[default]
+    Card,
+    MP,
+}
+
+#[derive(Debug, Serialize, Default, Deserialize, Clone, Eq, PartialEq)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum PaymentMethodFlow {
+    #[default]
+    Direct,
+    ReDirect,
+}
+
 #[derive(Default, Debug, Serialize, Eq, PartialEq)]
 pub struct DlocalPaymentsRequest {
     pub amount: i64, //amount in cents, hence passed as integer
     pub currency: enums::Currency,
     pub country: Option<String>,
-    pub payment_method_id: String,
-    pub payment_method_flow: String,
+    pub payment_method_id: PaymentMethodId,
+    pub payment_method_flow: PaymentMethodFlow,
     pub payer: Payer,
     pub card: Option<Card>,
     pub order_id: String,
@@ -55,11 +71,10 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
         let email = item
             .request
             .email
-            .as_ref()
-            .ok_or(errors::ConnectorError::MissingRequiredField {
-                field_name: "email_id",
-            })?
             .clone();
+        let name = item.address.billing.as_ref()
+            .and_then(|billing| billing.address.as_ref())
+            .and_then(|address| address.first_name.clone());
         match item.request.payment_method_data {
             api::PaymentMethod::Card(ref ccard) => {
                 let should_capture = matches!(
@@ -70,10 +85,10 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     amount: item.request.amount,
                     country: Some(get_country_from_currency(item.request.currency)),
                     currency: item.request.currency,
-                    payment_method_id: "CARD".to_string(),
-                    payment_method_flow: "DIRECT".to_string(),
+                    payment_method_id: PaymentMethodId::Card,
+                    payment_method_flow: PaymentMethodFlow::Direct,
                     payer: Payer {
-                        name: ccard.card_holder_name.clone(),
+                        name,
                         email,
                         //todo: this needs to be customer unique identifier like PAN, CPF, etc
                         // we need to mandatorily receive this from merchant and pass
@@ -97,15 +112,11 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                         installments: item.request.mandate_id.clone().map(|_| "1".to_string()),
                     }),
                     order_id: item.payment_id.clone(),
-                    notification_url: match &item.return_url {
+                    notification_url: match &item.router_return_url {
                         Some(val) => val.to_string(),
-                        None => "http://wwww.sandbox.juspay.in/hackathon/H1005".to_string(),
+                        None => "https://wwww.sandbox.juspay.in/".to_string(),
                     },
-                    three_dsecure: None, // Ideally item.auth_type should have nonThreeDS which is not happening
-                    // three_dsecure : match item.auth_type {
-                    //     ThreeDs => Some(ThreeDSecureReqData { force: (true) }),
-                    //     NoThreeDs => None,
-                    // },
+                    three_dsecure: None,
                     callback_url: item.return_url.clone(),
                 };
                 Ok(payment_request)
@@ -115,18 +126,18 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     amount: item.request.amount,
                     country: Some(get_country_from_currency(item.request.currency)),
                     currency: item.request.currency,
-                    payment_method_id: "MP".to_string(),
-                    payment_method_flow: "REDIRECT".to_string(),
+                    payment_method_id: PaymentMethodId::MP,
+                    payment_method_flow: PaymentMethodFlow::ReDirect,
                     payer: Payer {
-                        name: "dummyEmail@gmail.com".to_string().into(),
+                        name,
                         email,
                         document: "36691251830".to_string(),
                     },
                     card: None,
                     order_id: item.payment_id.clone(),
-                    notification_url: match &item.return_url {
+                    notification_url: match &item.router_return_url {
                         Some(val) => val.to_string(),
-                        None => "http://wwww.sandbox.juspay.in/hackathon/H1005".to_string(),
+                        None => "https://wwww.sandbox.juspay.in/".to_string(),
                     },
                     three_dsecure: None,
                     callback_url: item.return_url.clone(),
@@ -217,9 +228,9 @@ impl TryFrom<&types::ConnectorAuthType> for DlocalAuthType {
         } = auth_type
         {
             Ok(Self {
-                x_login: (api_key.to_string()),
-                x_trans_key: (key1.to_string()),
-                secret: (api_secret.to_string()),
+                x_login: api_key.to_string(),
+                x_trans_key: key1.to_string(),
+                secret: api_secret.to_string(),
             })
         } else {
             Err(errors::ConnectorError::FailedToObtainAuthType.into())
@@ -413,7 +424,7 @@ impl<F, T>
 pub struct RefundRequest {
     pub amount: String,
     pub payment_id: String,
-    pub currency: String,
+    pub currency: enums::Currency,
     pub notification_url: String,
     pub id: String,
 }
@@ -426,11 +437,10 @@ impl<F> TryFrom<&types::RefundsRouterData<F>> for RefundRequest {
             Some(val) => val,
             None => "https://google.com".to_string(),
         };
-        let payment_intent = item.request.connector_transaction_id.clone();
         Ok(Self {
             amount: amount_to_refund,
-            payment_id: payment_intent,
-            currency: (item.request.currency.to_string()),
+            payment_id: item.request.connector_transaction_id.clone(),
+            currency: (item.request.currency),
             id: item.request.refund_id.clone(),
             notification_url: return_url,
         })
