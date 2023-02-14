@@ -68,11 +68,11 @@ pub struct DlocalPaymentsRequest {
 impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
     type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(item: &types::PaymentsAuthorizeRouterData) -> Result<Self, Self::Error> {
-        let email = item
-            .request
-            .email
-            .clone();
-        let name = item.address.billing.as_ref()
+        let email = item.request.email.clone();
+        let name = item
+            .address
+            .billing
+            .as_ref()
             .and_then(|billing| billing.address.as_ref())
             .and_then(|address| address.first_name.clone());
         match item.request.payment_method_data {
