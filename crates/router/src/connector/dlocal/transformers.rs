@@ -268,7 +268,7 @@ impl<F, T>
     TryFrom<types::ResponseRouterData<F, DlocalPaymentsResponse, T, types::PaymentsResponseData>>
     for types::RouterData<F, T, types::PaymentsResponseData>
 {
-    type Error = error_stack::Report<errors::ParsingError>;
+    type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(
         item: types::ResponseRouterData<F, DlocalPaymentsResponse, T, types::PaymentsResponseData>,
     ) -> Result<Self, Self::Error> {
@@ -278,8 +278,7 @@ impl<F, T>
                     let redirection_url_response = Url::parse(&redirect_url)
                         .into_report()
                         .change_context(errors::ConnectorError::ResponseHandlingFailed)
-                        .attach_printable("Failed to parse redirection url")
-                        .unwrap();
+                        .attach_printable("Failed to parse redirection url")?;
                     let form_field_for_redirection = std::collections::HashMap::from_iter(
                         redirection_url_response
                             .query_pairs()
