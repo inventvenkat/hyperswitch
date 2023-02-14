@@ -50,17 +50,23 @@ pub enum PaymentMethodFlow {
     ReDirect,
 }
 
+#[derive(Debug, Serialize, Default, Deserialize, Clone, Eq, PartialEq)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum Country {
+    #[default]
+    BR,
+    Ind,
+}
 #[derive(Default, Debug, Serialize, Eq, PartialEq)]
 pub struct DlocalPaymentsRequest {
     pub amount: i64, //amount in cents, hence passed as integer
     pub currency: enums::Currency,
-    pub country: Option<String>,
+    pub country: Country,
     pub payment_method_id: PaymentMethodId,
     pub payment_method_flow: PaymentMethodFlow,
     pub payer: Payer,
     pub card: Option<Card>,
     pub order_id: String,
-    pub notification_url: String,
     pub three_dsecure: Option<ThreeDSecureReqData>,
     pub callback_url: Option<String>,
 }
@@ -83,10 +89,11 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                 );
                 let payment_request = Self {
                     amount: item.request.amount,
-                    country: Some(get_country_from_currency(item.request.currency)),
                     currency: item.request.currency,
                     payment_method_id: PaymentMethodId::Card,
                     payment_method_flow: PaymentMethodFlow::Direct,
+                    // [#589]: Allow securely collecting PII from customer in payments request
+                    country: Country::BR,
                     payer: Payer {
                         name,
                         email,
@@ -112,10 +119,6 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                         installments: item.request.mandate_id.clone().map(|_| "1".to_string()),
                     }),
                     order_id: item.payment_id.clone(),
-                    notification_url: match &item.router_return_url {
-                        Some(val) => val.to_string(),
-                        None => "https://wwww.sandbox.juspay.in/".to_string(),
-                    },
                     three_dsecure: None,
                     callback_url: item.return_url.clone(),
                 };
@@ -124,21 +127,19 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
             api::PaymentMethod::Wallet(ref _wallet) => {
                 let payment_request = Self {
                     amount: item.request.amount,
-                    country: Some(get_country_from_currency(item.request.currency)),
                     currency: item.request.currency,
                     payment_method_id: PaymentMethodId::MP,
                     payment_method_flow: PaymentMethodFlow::ReDirect,
+                    // [#589]: Allow securely collecting PII from customer in payments request
+                    country: Country::BR,
                     payer: Payer {
                         name,
                         email,
+                        // [#589]: Allow securely collecting PII from customer in payments request
                         document: "36691251830".to_string(),
                     },
                     card: None,
                     order_id: item.payment_id.clone(),
-                    notification_url: match &item.router_return_url {
-                        Some(val) => val.to_string(),
-                        None => "https://wwww.sandbox.juspay.in/".to_string(),
-                    },
                     three_dsecure: None,
                     callback_url: item.return_url.clone(),
                 };
@@ -148,13 +149,6 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                 errors::ConnectorError::NotImplemented("Current Payment Method".to_string()).into(),
             ),
         }
-    }
-}
-
-fn get_country_from_currency(item: enums::Currency) -> String {
-    match item {
-        storage_models::enums::Currency::BRL => "BR".to_string(),
-        _ => "IN".to_string(),
     }
 }
 
@@ -425,7 +419,6 @@ pub struct RefundRequest {
     pub amount: String,
     pub payment_id: String,
     pub currency: enums::Currency,
-    pub notification_url: String,
     pub id: String,
 }
 
@@ -433,16 +426,11 @@ impl<F> TryFrom<&types::RefundsRouterData<F>> for RefundRequest {
     type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(item: &types::RefundsRouterData<F>) -> Result<Self, Self::Error> {
         let amount_to_refund = item.request.refund_amount.to_string();
-        let return_url = match item.return_url.clone() {
-            Some(val) => val,
-            None => "https://google.com".to_string(),
-        };
         Ok(Self {
             amount: amount_to_refund,
             payment_id: item.request.connector_transaction_id.clone(),
             currency: (item.request.currency),
             id: item.request.refund_id.clone(),
-            notification_url: return_url,
         })
     }
 }
