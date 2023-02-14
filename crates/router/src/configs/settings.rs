@@ -141,6 +141,7 @@ pub struct Connectors {
     pub braintree: ConnectorParams,
     pub checkout: ConnectorParams,
     pub cybersource: ConnectorParams,
+    pub dlocal: ConnectorParams,
     pub fiserv: ConnectorParams,
     pub globalpay: ConnectorParams,
     pub klarna: ConnectorParams,
@@ -153,7 +154,6 @@ pub struct Connectors {
 
     // Keep this field separate from the remaining fields
     pub supported: SupportedConnectors,
-    pub dlocal: ConnectorParams,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
