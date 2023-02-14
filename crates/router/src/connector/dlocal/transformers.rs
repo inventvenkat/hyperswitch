@@ -68,7 +68,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                 );
                 let payment_request = Self {
                     amount: item.request.amount,
-                    country: Some(get_currency(item.request.currency)),
+                    country: Some(get_country_from_currency(item.request.currency)),
                     currency: item.request.currency,
                     payment_method_id: "CARD".to_string(),
                     payment_method_flow: "DIRECT".to_string(),
@@ -93,6 +93,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                             .mandate_id
                             .as_ref()
                             .map(|ids| ids.mandate_id.clone()),
+                        // [#595[FEATURE] Pass Mandate history information in payment flows/request]
                         installments: item.request.mandate_id.clone().map(|_| "1".to_string()),
                     }),
                     order_id: item.payment_id.clone(),
@@ -105,7 +106,6 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     //     ThreeDs => Some(ThreeDSecureReqData { force: (true) }),
                     //     NoThreeDs => None,
                     // },
-                    // wallet: None,
                     callback_url: item.return_url.clone(),
                 };
                 Ok(payment_request)
@@ -113,7 +113,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
             api::PaymentMethod::Wallet(ref _wallet) => {
                 let payment_request = Self {
                     amount: item.request.amount,
-                    country: Some(get_currency(item.request.currency)),
+                    country: Some(get_country_from_currency(item.request.currency)),
                     currency: item.request.currency,
                     payment_method_id: "MP".to_string(),
                     payment_method_flow: "REDIRECT".to_string(),
@@ -128,7 +128,6 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                         Some(val) => val.to_string(),
                         None => "http://wwww.sandbox.juspay.in/hackathon/H1005".to_string(),
                     },
-                    // wallet:None,
                     three_dsecure: None,
                     callback_url: item.return_url.clone(),
                 };
@@ -141,7 +140,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
     }
 }
 
-fn get_currency(item: enums::Currency) -> String {
+fn get_country_from_currency(item: enums::Currency) -> String {
     match item {
         storage_models::enums::Currency::BRL => "BR".to_string(),
         _ => "IN".to_string(),

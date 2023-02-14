@@ -391,6 +391,7 @@ async fn should_fail_void_payment_for_auto_capture() {
         .unwrap();
     let x = void_response.response.unwrap_err();
     assert_eq!(x.code, "5021",);
+    assert_eq!(x.message, "Acquirer could not process the request");
 }
 
 // Captures a payment using invalid connector payment id.
