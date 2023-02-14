@@ -50,18 +50,11 @@ pub enum PaymentMethodFlow {
     ReDirect,
 }
 
-#[derive(Debug, Serialize, Default, Deserialize, Clone, Eq, PartialEq)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum Country {
-    #[default]
-    BR,
-    Ind,
-}
 #[derive(Default, Debug, Serialize, Eq, PartialEq)]
 pub struct DlocalPaymentsRequest {
     pub amount: i64, //amount in cents, hence passed as integer
     pub currency: enums::Currency,
-    pub country: Country,
+    pub country: String,
     pub payment_method_id: PaymentMethodId,
     pub payment_method_flow: PaymentMethodFlow,
     pub payer: Payer,
@@ -75,12 +68,17 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
     type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(item: &types::PaymentsAuthorizeRouterData) -> Result<Self, Self::Error> {
         let email = item.request.email.clone();
-        let name = item
+        let address = item
             .address
             .billing
             .as_ref()
-            .and_then(|billing| billing.address.as_ref())
-            .and_then(|address| address.first_name.clone());
+            .and_then(|billing| billing.address.as_ref());
+        let country = address.and_then(|address| address.country.clone()).ok_or(
+            errors::ConnectorError::MissingRequiredField {
+                field_name: ("billing.address.country"),
+            },
+        )?;
+        let name = address.and_then(|address| address.first_name.clone());
         match item.request.payment_method_data {
             api::PaymentMethod::Card(ref ccard) => {
                 let should_capture = matches!(
@@ -93,7 +91,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     payment_method_id: PaymentMethodId::Card,
                     payment_method_flow: PaymentMethodFlow::Direct,
                     // [#589]: Allow securely collecting PII from customer in payments request
-                    country: Country::BR,
+                    country,
                     payer: Payer {
                         name,
                         email,
@@ -131,7 +129,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     payment_method_id: PaymentMethodId::MP,
                     payment_method_flow: PaymentMethodFlow::ReDirect,
                     // [#589]: Allow securely collecting PII from customer in payments request
-                    country: Country::BR,
+                    country,
                     payer: Payer {
                         name,
                         email,
