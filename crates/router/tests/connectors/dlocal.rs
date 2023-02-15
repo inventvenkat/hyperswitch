@@ -175,14 +175,20 @@ async fn should_sync_manually_captured_refund() {
 // Creates a payment using the automatic capture flow (Non 3DS).
 #[actix_web::test]
 async fn should_make_payment() {
-    let authorize_response = CONNECTOR.make_payment(None, Some(get_payment_info())).await.unwrap();
+    let authorize_response = CONNECTOR
+        .make_payment(None, Some(get_payment_info()))
+        .await
+        .unwrap();
     assert_eq!(authorize_response.status, enums::AttemptStatus::Charged);
 }
 
 // Synchronizes a payment using the automatic capture flow (Non 3DS).
 #[actix_web::test]
 async fn should_sync_auto_captured_payment() {
-    let authorize_response = CONNECTOR.make_payment(None, Some(get_payment_info())).await.unwrap();
+    let authorize_response = CONNECTOR
+        .make_payment(None, Some(get_payment_info()))
+        .await
+        .unwrap();
     assert_eq!(authorize_response.status, enums::AttemptStatus::Charged);
     let txn_id = utils::get_connector_transaction_id(authorize_response.response);
     assert_ne!(txn_id, None, "Empty connector transaction id");
@@ -382,7 +388,10 @@ async fn should_fail_payment_for_incorrect_expiry_year() {
 // Voids a payment using automatic capture flow (Non 3DS).
 #[actix_web::test]
 async fn should_fail_void_payment_for_auto_capture() {
-    let authorize_response = CONNECTOR.make_payment(None, Some(get_payment_info())).await.unwrap();
+    let authorize_response = CONNECTOR
+        .make_payment(None, Some(get_payment_info()))
+        .await
+        .unwrap();
     assert_eq!(authorize_response.status, enums::AttemptStatus::Charged);
     let txn_id = utils::get_connector_transaction_id(authorize_response.response);
     assert_ne!(txn_id, None, "Empty connector transaction id");
@@ -427,18 +436,28 @@ async fn should_fail_for_refund_amount_higher_than_payment_amount() {
     assert_eq!(x.message, "Amount exceeded",);
 }
 
-pub fn get_payment_info() -> PaymentInfo{
-    PaymentInfo{
-        address : Some(PaymentAddress{
-            shipping:None,
-            billing: Some(Address{
-                phone : None,
-                address : Some(api::AddressDetails { city: None, country: Some("BR".to_string()), line1: None, line2: None, line3: None, zip: None, state: None, first_name: None, last_name: None })
-            }) ,
+pub fn get_payment_info() -> PaymentInfo {
+    PaymentInfo {
+        address: Some(PaymentAddress {
+            shipping: None,
+            billing: Some(Address {
+                phone: None,
+                address: Some(api::AddressDetails {
+                    city: None,
+                    country: Some("BR".to_string()),
+                    line1: None,
+                    line2: None,
+                    line3: None,
+                    zip: None,
+                    state: None,
+                    first_name: None,
+                    last_name: None,
+                }),
+            }),
         }),
-        auth_type : None,
-        access_token : None,
-        router_return_url : None,
+        auth_type: None,
+        access_token: None,
+        router_return_url: None,
     }
 }
 // Connector dependent test cases goes here
