@@ -208,7 +208,9 @@ impl AddressDetailsData for api::AddressDetails {
     }
 }
 
-pub fn to_redirection_data(redirect_url: Option<String>) -> Result<Option<services::RedirectForm>,  error_stack::Report<errors::ConnectorError>> {
+pub fn to_redirection_data(
+    redirect_url: Option<String>,
+) -> Result<Option<services::RedirectForm>, error_stack::Report<errors::ConnectorError>> {
     match redirect_url {
         Some(redirect_url) => {
             let redirection_url_response = Url::parse(&redirect_url)

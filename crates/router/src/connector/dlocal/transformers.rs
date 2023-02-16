@@ -4,8 +4,9 @@ use masking::Secret;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    connector::utils::{self, AddressDetailsData, PaymentsRequestData},
     core::errors,
-    types::{self, api, storage::enums}, connector::utils::{PaymentsRequestData, AddressDetailsData, self},
+    types::{self, api, storage::enums},
 };
 
 #[derive(Debug, Default, Eq, PartialEq, Serialize)]
