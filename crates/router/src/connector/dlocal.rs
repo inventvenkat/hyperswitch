@@ -8,7 +8,6 @@ use common_utils::{
 };
 use error_stack::{IntoReport, ResultExt};
 use hex::encode;
-use time::format_description::{self};
 use transformers as dlocal;
 
 use crate::{
@@ -43,12 +42,8 @@ where
             Some(val) => val,
             None => "".to_string(),
         };
-        let format =
-            format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second].000Z")
-                .into_report()
-                .change_context(errors::ConnectorError::RequestEncodingFailed)?;
-        let date = date_time::now()
-            .format(&format)
+
+        let date = date_time::date_as_yyyymmddthhmmssmmmz()
             .into_report()
             .change_context(errors::ConnectorError::RequestEncodingFailed)?;
 

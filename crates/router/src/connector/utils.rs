@@ -1,9 +1,11 @@
 use error_stack::{report, IntoReport, ResultExt};
 use masking::Secret;
+use reqwest::Url;
 
 use crate::{
     core::errors::{self, CustomResult},
     pii::PeekInterface,
+    services,
     types::{self, api},
     utils::OptionExt,
 };
@@ -39,6 +41,7 @@ pub trait PaymentsRequestData {
     fn get_billing(&self) -> Result<&api::Address, Error>;
     fn get_billing_country(&self) -> Result<String, Error>;
     fn get_billing_phone(&self) -> Result<&api::PhoneDetails, Error>;
+    fn get_billing_address(&self) -> Result<&api::AddressDetails, Error>;
     fn get_card(&self) -> Result<api::Card, Error>;
     fn get_return_url(&self) -> Result<String, Error>;
 }
@@ -85,6 +88,13 @@ impl PaymentsRequestData for types::PaymentsAuthorizeRouterData {
             .as_ref()
             .and_then(|a| a.phone.as_ref())
             .ok_or_else(missing_field_err("billing.phone"))
+    }
+    fn get_billing_address(&self) -> Result<&api::AddressDetails, Error> {
+        self.address
+            .billing
+            .as_ref()
+            .and_then(|a| a.address.as_ref())
+            .ok_or_else(missing_field_err("billing.address"))
     }
     fn get_billing(&self) -> Result<&api::Address, Error> {
         self.address
@@ -195,6 +205,28 @@ impl AddressDetailsData for api::AddressDetails {
         self.country
             .as_ref()
             .ok_or_else(missing_field_err("address.country"))
+    }
+}
+
+pub fn to_redirection_data(redirect_url: Option<String>) -> Result<Option<services::RedirectForm>,  error_stack::Report<errors::ConnectorError>> {
+    match redirect_url {
+        Some(redirect_url) => {
+            let redirection_url_response = Url::parse(&redirect_url)
+                .into_report()
+                .change_context(errors::ConnectorError::ResponseHandlingFailed)
+                .attach_printable("Failed to parse redirection url")?;
+            let form_field_for_redirection = std::collections::HashMap::from_iter(
+                redirection_url_response
+                    .query_pairs()
+                    .map(|(k, v)| (k.to_string(), v.to_string())),
+            );
+            Ok(Some(services::RedirectForm {
+                url: redirect_url,
+                method: services::Method::Get,
+                form_fields: form_field_for_redirection,
+            }))
+        }
+        None => Ok(None),
     }
 }
 

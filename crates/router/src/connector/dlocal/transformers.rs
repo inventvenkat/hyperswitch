@@ -1,13 +1,11 @@
 use common_utils::pii::{self, Email};
 use error_stack::{IntoReport, ResultExt};
 use masking::Secret;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     core::errors,
-    services,
-    types::{self, api, storage::enums},
+    types::{self, api, storage::enums}, connector::utils::{PaymentsRequestData, AddressDetailsData, self},
 };
 
 #[derive(Debug, Default, Eq, PartialEq, Serialize)]
@@ -68,17 +66,9 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
     type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(item: &types::PaymentsAuthorizeRouterData) -> Result<Self, Self::Error> {
         let email = item.request.email.clone();
-        let address = item
-            .address
-            .billing
-            .as_ref()
-            .and_then(|billing| billing.address.as_ref());
-        let country = address.and_then(|address| address.country.clone()).ok_or(
-            errors::ConnectorError::MissingRequiredField {
-                field_name: ("billing.address.country"),
-            },
-        )?;
-        let name = address.and_then(|address| address.first_name.clone());
+        let address = item.get_billing_address()?;
+        let country = address.get_country()?;
+        let name = &address.first_name;
         match item.request.payment_method_data {
             api::PaymentMethod::Card(ref ccard) => {
                 let should_capture = matches!(
@@ -91,9 +81,9 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     payment_method_id: PaymentMethodId::Card,
                     payment_method_flow: PaymentMethodFlow::Direct,
                     // [#589]: Allow securely collecting PII from customer in payments request
-                    country,
+                    country: country.to_string(),
                     payer: Payer {
-                        name,
+                        name: name.to_owned(),
                         email,
                         //todo: this needs to be customer unique identifier like PAN, CPF, etc
                         // we need to mandatorily receive this from merchant and pass
@@ -128,10 +118,9 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     currency: item.request.currency,
                     payment_method_id: PaymentMethodId::MP,
                     payment_method_flow: PaymentMethodFlow::ReDirect,
-                    // [#589]: Allow securely collecting PII from customer in payments request
-                    country,
+                    country: country.to_string(),
                     payer: Payer {
-                        name,
+                        name: name.to_owned(),
                         email,
                         // [#589]: Allow securely collecting PII from customer in payments request
                         document: "36691251830".to_string(),
@@ -275,25 +264,7 @@ impl<F, T>
         item: types::ResponseRouterData<F, DlocalPaymentsResponse, T, types::PaymentsResponseData>,
     ) -> Result<Self, Self::Error> {
         let three_ds_data = match item.response.three_dsecure {
-            Some(val) => match val.redirect_url {
-                Some(redirect_url) => {
-                    let redirection_url_response = Url::parse(&redirect_url)
-                        .into_report()
-                        .change_context(errors::ConnectorError::ResponseHandlingFailed)
-                        .attach_printable("Failed to parse redirection url")?;
-                    let form_field_for_redirection = std::collections::HashMap::from_iter(
-                        redirection_url_response
-                            .query_pairs()
-                            .map(|(k, v)| (k.to_string(), v.to_string())),
-                    );
-                    Some(services::RedirectForm {
-                        url: redirect_url,
-                        method: services::Method::Get,
-                        form_fields: form_field_for_redirection,
-                    })
-                }
-                None => None,
-            },
+            Some(val) => utils::to_redirection_data(val.redirect_url)?,
             None => None,
         };
 
