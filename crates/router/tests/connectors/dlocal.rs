@@ -444,7 +444,7 @@ pub fn get_payment_info() -> PaymentInfo {
                 phone: None,
                 address: Some(api::AddressDetails {
                     city: None,
-                    country: Some("BR".to_string()),
+                    country: Some("PA".to_string()),
                     line1: None,
                     line2: None,
                     line3: None,

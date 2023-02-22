@@ -1,6 +1,7 @@
+use api_models::payments::AddressDetails;
 use common_utils::pii::{self, Email};
-use error_stack::{IntoReport, ResultExt};
-use masking::Secret;
+use error_stack::ResultExt;
+use masking::{PeekInterface, Secret};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,7 +14,7 @@ use crate::{
 pub struct Payer {
     pub name: Option<Secret<String>>,
     pub email: Option<Secret<String, Email>>,
-    pub document: String,
+    pub document: Secret<String>,
 }
 
 #[derive(Debug, Default, Eq, Clone, PartialEq, Serialize, Deserialize)]
@@ -38,7 +39,6 @@ pub struct ThreeDSecureReqData {
 pub enum PaymentMethodId {
     #[default]
     Card,
-    MP,
 }
 
 #[derive(Debug, Serialize, Default, Deserialize, Clone, Eq, PartialEq)]
@@ -51,7 +51,7 @@ pub enum PaymentMethodFlow {
 
 #[derive(Default, Debug, Serialize, Eq, PartialEq)]
 pub struct DlocalPaymentsRequest {
-    pub amount: i64, //amount in cents, hence passed as integer
+    pub amount: i64,
     pub currency: enums::Currency,
     pub country: String,
     pub payment_method_id: PaymentMethodId,
@@ -69,7 +69,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
         let email = item.request.email.clone();
         let address = item.get_billing_address()?;
         let country = address.get_country()?;
-        let name = &address.first_name;
+        let name = get_payer_name(address);
         match item.request.payment_method_data {
             api::PaymentMethod::Card(ref ccard) => {
                 let should_capture = matches!(
@@ -81,16 +81,12 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                     currency: item.request.currency,
                     payment_method_id: PaymentMethodId::Card,
                     payment_method_flow: PaymentMethodFlow::Direct,
-                    // [#589]: Allow securely collecting PII from customer in payments request
                     country: country.to_string(),
                     payer: Payer {
-                        name: name.to_owned(),
+                        name,
                         email,
-                        //todo: this needs to be customer unique identifier like PAN, CPF, etc
-                        // we need to mandatorily receive this from merchant and pass
-                        // so, we need to get this data from payment_core and pass
                         // [#589]: Allow securely collecting PII from customer in payments request
-                        document: "36691251830".to_string(),
+                        document: Secret::new("12345678".to_string()),
                     },
                     card: Some(Card {
                         holder_name: ccard.card_holder_name.clone(),
@@ -113,30 +109,25 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                 };
                 Ok(payment_request)
             }
-            api::PaymentMethod::Wallet(ref _wallet) => {
-                let payment_request = Self {
-                    amount: item.request.amount,
-                    currency: item.request.currency,
-                    payment_method_id: PaymentMethodId::MP,
-                    payment_method_flow: PaymentMethodFlow::ReDirect,
-                    country: country.to_string(),
-                    payer: Payer {
-                        name: name.to_owned(),
-                        email,
-                        // [#589]: Allow securely collecting PII from customer in payments request
-                        document: "36691251830".to_string(),
-                    },
-                    card: None,
-                    order_id: item.payment_id.clone(),
-                    three_dsecure: None,
-                    callback_url: item.return_url.clone(),
-                };
-                Ok(payment_request)
-            }
-            _ => Err(
-                errors::ConnectorError::NotImplemented("Current Payment Method".to_string()).into(),
-            ),
+            _ => Err(errors::ConnectorError::NotImplemented("Payment Method".to_string()).into()),
         }
+    }
+}
+
+fn get_payer_name(address: &AddressDetails) -> Option<Secret<String>> {
+    let first_name = address
+        .first_name
+        .clone()
+        .map_or("".to_string(), |first_name| first_name.peek().to_string());
+    let last_name = address
+        .last_name
+        .clone()
+        .map_or("".to_string(), |last_name| last_name.peek().to_string());
+    let name: String = format!("{} {}", first_name, last_name).trim().to_string();
+    if !name.is_empty() {
+        Some(Secret::new(name))
+    } else {
+        None
     }
 }
 
@@ -165,7 +156,7 @@ impl TryFrom<&types::PaymentsCancelRouterData> for DlocalPaymentsCancelRequest {
     type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(item: &types::PaymentsCancelRouterData) -> Result<Self, Self::Error> {
         Ok(Self {
-            cancel_id: (item.request.connector_transaction_id.clone()),
+            cancel_id: item.request.connector_transaction_id.clone(),
         })
     }
 }
@@ -317,11 +308,13 @@ impl<F, T>
         })
     }
 }
+
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DlocalPaymentsCaptureResponse {
     status: DlocalPaymentStatus,
     id: String,
 }
+
 impl<F, T>
     TryFrom<
         types::ResponseRouterData<F, DlocalPaymentsCaptureResponse, T, types::PaymentsResponseData>,
@@ -354,6 +347,7 @@ pub struct DlocalPaymentsCancelResponse {
     status: DlocalPaymentStatus,
     id: String,
 }
+
 impl<F, T>
     TryFrom<
         types::ResponseRouterData<F, DlocalPaymentsCancelResponse, T, types::PaymentsResponseData>,
@@ -383,7 +377,6 @@ impl<F, T>
 }
 
 // REFUND :
-// Type definition for RefundRequest
 #[derive(Default, Debug, Serialize)]
 pub struct RefundRequest {
     pub amount: String,
@@ -399,13 +392,11 @@ impl<F> TryFrom<&types::RefundsRouterData<F>> for RefundRequest {
         Ok(Self {
             amount: amount_to_refund,
             payment_id: item.request.connector_transaction_id.clone(),
-            currency: (item.request.currency),
+            currency: item.request.currency,
             id: item.request.refund_id.clone(),
         })
     }
 }
-
-// Type definition for Refund Response
 
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Default, Deserialize, Clone)]
@@ -470,6 +461,7 @@ impl TryFrom<&types::RefundSyncRouterData> for DlocalRefundsSyncRequest {
         })
     }
 }
+
 impl TryFrom<types::RefundsResponseRouterData<api::RSync, RefundResponse>>
     for types::RefundsRouterData<api::RSync>
 {

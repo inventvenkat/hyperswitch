@@ -297,7 +297,7 @@ pub trait ConnectorActions: Connector {
         let request = self.generate_data(
             payment_data.unwrap_or_else(|| types::RefundsData {
                 amount: 1000,
-                currency: enums::Currency::BRL,
+                currency: enums::Currency::USD,
                 refund_id: uuid::Uuid::new_v4().to_string(),
                 connector_transaction_id: "".to_string(),
                 refund_amount: 100,
@@ -458,7 +458,7 @@ impl Default for PaymentAuthorizeType {
         let data = types::PaymentsAuthorizeData {
             payment_method_data: types::api::PaymentMethod::Card(CCardType::default().0),
             amount: 100,
-            currency: enums::Currency::BRL,
+            currency: enums::Currency::USD,
             confirm: true,
             statement_descriptor_suffix: None,
             capture_method: None,
@@ -468,7 +468,7 @@ impl Default for PaymentAuthorizeType {
             setup_mandate_details: None,
             browser_info: Some(BrowserInfoType::default().0),
             order_details: None,
-            email: Some(Secret::new("myemail@gmail.com".to_string())),
+            email: None,
         };
         Self(data)
     }
@@ -478,7 +478,7 @@ impl Default for PaymentCaptureType {
     fn default() -> Self {
         Self(types::PaymentsCaptureData {
             amount_to_capture: Some(100),
-            currency: enums::Currency::BRL,
+            currency: enums::Currency::USD,
             connector_transaction_id: "".to_string(),
             amount: 100,
         })
@@ -529,7 +529,7 @@ impl Default for PaymentRefundType {
     fn default() -> Self {
         let data = types::RefundsData {
             amount: 100,
-            currency: enums::Currency::BRL,
+            currency: enums::Currency::USD,
             refund_id: uuid::Uuid::new_v4().to_string(),
             connector_transaction_id: String::new(),
             refund_amount: 100,
