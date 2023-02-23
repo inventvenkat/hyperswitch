@@ -3,10 +3,12 @@ use common_utils::pii::{self, Email};
 use error_stack::ResultExt;
 use masking::{PeekInterface, Secret};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::{
-    connector::utils::{self, AddressDetailsData, PaymentsRequestData},
+    connector::utils::{AddressDetailsData, PaymentsRequestData},
     core::errors,
+    services,
     types::{self, api, storage::enums},
 };
 
@@ -235,9 +237,9 @@ impl From<DlocalPaymentStatus> for enums::AttemptStatus {
     }
 }
 
-#[derive(Default, Eq, Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Eq, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ThreeDSecureResData {
-    pub redirect_url: Option<String>,
+    pub redirect_url: Option<Url>,
 }
 
 #[derive(Debug, Default, Eq, Clone, PartialEq, Serialize, Deserialize)]
@@ -255,15 +257,17 @@ impl<F, T>
     fn try_from(
         item: types::ResponseRouterData<F, DlocalPaymentsResponse, T, types::PaymentsResponseData>,
     ) -> Result<Self, Self::Error> {
-        let three_ds_data = match item.response.three_dsecure {
-            Some(val) => utils::to_redirection_data(val.redirect_url)?,
-            None => None,
-        };
+        let redirection_data = item
+            .response
+            .three_dsecure
+            .and_then(|three_secure_data| three_secure_data.redirect_url)
+            .map(|redirect_url| {
+                services::RedirectForm::from((redirect_url, services::Method::Get))
+            });
 
         let response = types::PaymentsResponseData::TransactionResponse {
             resource_id: types::ResponseId::ConnectorTransactionId(item.response.id),
-            redirection_data: three_ds_data.clone(),
-            redirect: three_ds_data.is_some(),
+            redirection_data,
             mandate_reference: None,
             connector_metadata: None,
         };
@@ -300,7 +304,6 @@ impl<F, T>
             response: Ok(types::PaymentsResponseData::TransactionResponse {
                 resource_id: types::ResponseId::ConnectorTransactionId(item.response.id),
                 redirection_data: None,
-                redirect: false,
                 mandate_reference: None,
                 connector_metadata: None,
             }),
@@ -334,7 +337,6 @@ impl<F, T>
             response: Ok(types::PaymentsResponseData::TransactionResponse {
                 resource_id: types::ResponseId::ConnectorTransactionId(item.response.id),
                 redirection_data: None,
-                redirect: false,
                 mandate_reference: None,
                 connector_metadata: None,
             }),
@@ -367,7 +369,6 @@ impl<F, T>
             response: Ok(types::PaymentsResponseData::TransactionResponse {
                 resource_id: types::ResponseId::ConnectorTransactionId(item.response.id),
                 redirection_data: None,
-                redirect: false,
                 mandate_reference: None,
                 connector_metadata: None,
             }),
