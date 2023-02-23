@@ -6,7 +6,7 @@
 <p align="center">
 <i>Unified Payments Switch. Fast. Reliable. Affordable.</i>
 </p>
-
+ 
 <p align="center">
   <a href="https://github.com/juspay/hyperswitch/actions?query=workflow%3ACI+branch%3Amain">
     <img src="https://github.com/juspay/hyperswitch/workflows/CI/badge.svg" />
