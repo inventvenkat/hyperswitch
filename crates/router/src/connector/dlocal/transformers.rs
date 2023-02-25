@@ -88,7 +88,7 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                         name,
                         email,
                         // [#589]: Allow securely collecting PII from customer in payments request
-                        document: Secret::new("12345678".to_string()),
+                        document: get_doc_from_currency(country.to_string()),
                     },
                     card: Some(Card {
                         holder_name: ccard.card_holder_name.clone(),
@@ -106,7 +106,12 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for DlocalPaymentsRequest {
                         installments: item.request.mandate_id.clone().map(|_| "1".to_string()),
                     }),
                     order_id: item.payment_id.clone(),
-                    three_dsecure: None,
+                    three_dsecure: match item.auth_type {
+                        storage_models::enums::AuthenticationType::ThreeDs => {
+                            Some(ThreeDSecureReqData { force: true })
+                        }
+                        storage_models::enums::AuthenticationType::NoThreeDs => None,
+                    },
                     callback_url: item.return_url.clone(),
                 };
                 Ok(payment_request)
@@ -486,4 +491,23 @@ pub struct DlocalErrorResponse {
     pub code: i32,
     pub message: String,
     pub param: Option<String>,
+}
+
+fn get_doc_from_currency(country: String) -> Secret<String> {
+    let doc = match country.as_str() {
+        "BR" => "91483309223",
+        "ZA" => "2001014800086",
+        "BD" | "GT" | "HN" | "PK" | "SN" | "TH" => "1234567890001",
+        "CR" | "SV" | "VN" => "123456789",
+        "DO" | "NG" => "12345678901",
+        "EG" => "12345678901112",
+        "GH" | "ID" | "RW" | "UG" => "1234567890111123",
+        "IN" => "NHSTP6374G",
+        "CI" => "CA124356789",
+        "JP" | "MY" | "PH" => "123456789012",
+        "NI" => "1234567890111A",
+        "TZ" => "12345678912345678900",
+        _ => "12345678",
+    };
+    Secret::new(doc.to_string())
 }
